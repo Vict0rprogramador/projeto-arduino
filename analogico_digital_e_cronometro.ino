@@ -5,6 +5,12 @@ cas ====
 #include <SPI.h>
 #include <Wire.h>
 #include <DS3231.h>
+#include <SoftwareSerial.h> //Biblioteca bluetootth
+
+// ==== Bluetooth=== 
+const int pinoRx = //NUMERO DA ENTRADA RX do blue
+const int pinoTx = // //    //    //  TX do blue
+SoftwareSerial conexao(pinoRx, pinoTx)
 
 // ==== Display ====
 #define TFT_CS     10
@@ -53,6 +59,9 @@ void setup() {
   tft.initR(INITR_144GREENTAB);
   tft.setRotation(0);
   tft.fillScreen(ST77XX_BLACK);
+// =============== Conexão Bluetooth ===============
+conexao.begin(9600);
+Serial.println("Bluetooth iniciado");
 
   drawClockFace();
 }
@@ -60,7 +69,44 @@ void setup() {
 // ================= LOOP =================
 void loop() {
   handleButton();
+  //Para verificar se há conexão blue
+  if(conexao.available()) {
+    char opcaoTela= conexao.read(); //le o caracter que o python enviar
+    Serial.print("Tela escolhida:"); 
+    Serial.println(opcaoTela); 
 
+    switch (opcaoTela) { //Seleciona os modos do relogio
+      case '1':
+        if(currentMode != ANALOG) {
+          currentMode= ANALOG;
+          tft.fillScreen(ST77XX_BLACK);
+          prev_sec = -1;
+          conexao.println("Modo: Analógico");
+        }
+        break;
+      case '2':
+      if(currentMode != DIGITAL) {
+        currentMode = DIGITAL;
+        tft.fillScreen(ST77XX_BLACK);
+        conexao.println("Modo: Digital");
+      }
+      break;
+      case '3':
+      if(currentMode != TIMER){
+        currentMode= TIMER;
+        tft.fillScreen(ST77XX_BLACK);
+         timerRunning = false;
+        timerElapsed = 0;
+        timerStopped = false;
+        conexao.println("Modo: Cronômetro");
+      }
+      break;
+      default:
+        conexao.println("Opção invalida, escolha uma tela existente");
+        break;
+    }
+  }
+  
   agora = rtc.getTime();
   int hour = agora.hour % 12;
   int minute = agora.min;
