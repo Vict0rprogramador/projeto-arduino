@@ -12,6 +12,15 @@ const int pinoRx = //NUMERO DA ENTRADA RX do blue
 const int pinoTx = // //    //    //  TX do blue
 SoftwareSerial conexao(pinoRx, pinoTx)
 
+bool conexaoCancelada = false;
+bool oKRecebido = false;
+
+// ==== botão app ===
+#define pinCanalA 8
+#define pinCanalB 9
+#define pinCanalC 10
+#define pinCanalD 11
+
 // ==== Display ====
 #define TFT_CS     10
 #define TFT_RST    8
@@ -51,6 +60,11 @@ bool timerStopped = false;
 
 // ================= SETUP =================
 void setup() {
+  pinMode(pinCanalA, OUTPUT);
+  pinMode(pinCanalB, OUTPUT);
+  pinMode(pinCanalC, OUTPUT);
+  pinMode(pinCanalD, OUTPUT);
+
   Serial.begin(9600);
   rtc.begin();
   
@@ -71,42 +85,65 @@ void loop() {
   handleButton();
   //Para verificar se há conexão blue
   if(conexao.available()) {
-    char opcaoTela= conexao.read(); //le o caracter que o python enviar
-    Serial.print("Tela escolhida:"); 
-    Serial.println(opcaoTela); 
-
-    switch (opcaoTela) { //Seleciona os modos do relogio
-      case '1':
-        if(currentMode != ANALOG) {
-          currentMode= ANALOG;
-          tft.fillScreen(ST77XX_BLACK);
-          prev_sec = -1;
-          conexao.println("Modo: Analógico");
-        }
-        break;
-      case '2':
-      if(currentMode != DIGITAL) {
-        currentMode = DIGITAL;
-        tft.fillScreen(ST77XX_BLACK);
-        conexao.println("Modo: Digital");
-      }
-      break;
-      case '3':
-      if(currentMode != TIMER){
-        currentMode= TIMER;
-        tft.fillScreen(ST77XX_BLACK);
-         timerRunning = false;
-        timerElapsed = 0;
-        timerStopped = false;
-        conexao.println("Modo: Cronômetro");
-      }
-      break;
-      default:
-        conexao.println("Opção invalida, escolha uma tela existente");
-        break;
+    char byteRecebido= conexao.read();
+    
+    Serial.write(byteRecebido);
+    Serial.println();
+    if (byteRecebido == '+') {
+      conexaoCancelada = true;
     }
-  }
+
+    if (conexaoCancelada) {
+      if (byteRecebido == 'O') {
+        oKRecebido = true;
+      }
+      if (oKRecebido) {
+        if (byteRecebido == 'K') {
+          conexaoCancelada = false;
+          oKRecebido = false;
+        }
+      }
+    }
+    if (!conexaoCancelada) {
+
+      if (byteRecebido == 'A') {
+        if (currentMode != ANALOG) {
+            currentMode = ANALOG;
+            tft.fillScreen(ST77XX_BLACK);
+            drawClockFace(); // Reseta a tela
+            prev_sec = -1;   // Reseta posições anteriores dos ponteiros para redesenhar
+            prev_min = -1;
+            prev_hour = -1;
+      }
+
+      else if (byteRecebido == 'B') {
+        if (currentMode != DIGITAL) {
+            currentMode = DIGITAL;
+            tft.fillScreen(ST77XX_BLACK);
+      }
+      else if (byteRecebido == 'C') {
+         if (currentMode != TIMER) {
+            currentMode = TIMER;
+            tft.fillScreen(ST77XX_BLACK);
+            timerRunning = false;
+            timerElapsed = 0;
+            timerStopped = false;
+          }
+
+      else if (byteRecebido == 'd') {
+        Serial.println("Desligando porta CnD.");
+        digitalWrite(pinCanalD, LOW);
+      }
+
+      if (byteRecebido == 'D') {
+        Serial.println("Ligando porta CnD.");
+        digitalWrite(pinCanalD, HIGH);
+      }
+    }
+    if (Serial.available()) {
+    conexao.write(Serial.read());
   
+//================ Fim da alteração ===============
   agora = rtc.getTime();
   int hour = agora.hour % 12;
   int minute = agora.min;
